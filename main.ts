@@ -8,7 +8,14 @@ const webhooks = new Webhooks({
 })
 
 webhooks.on("push", async ({ id, name, payload }) => {
-    console.info(`push event recieved: ${name}. payload: ${payload}`);
+    console.info(`push event recieved: ${name}. payload: ${JSON.stringify(payload)}`);
+    if (payload.repository.full_name === "eashwar/eash.dev")
+    {
+        const currentUtime = Date.now();
+        const deployFileToCreate = "/data/site-deploy/" + currentUtime + ".txt";
+        console.info(`deploying ${deployFileToCreate}`);
+        await Deno.writeTextFile(deployFileToCreate, "deploy time!");
+    }
 });
 
 const webhookMiddleware = createNodeMiddleware(webhooks, { path: "/gh-webhook"});
