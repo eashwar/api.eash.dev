@@ -1,41 +1,44 @@
-const port = 30081;
+import { Webhooks, createNodeMiddleware } from "npm:@octokit/webhooks";
+import express, { NextFunction, Request, Response } from "npm:express@4.21.2";
 
-function getResponseString(path: string): string | undefined {
-    switch(path) {
-        case "/":
-            return "hello world from deno! welcome to eash-api.";
-        case "/health":
-            return "Healthy"
-        case "/ping": {
-            const potentialResponses : string[] = ["hello there!", "hiya!", "pong", "meowdy!", "hey there :3"];
-            return potentialResponses[Math.floor(Math.random() * potentialResponses.length)];
-        }
-        default:
-            return undefined;
-    }
-}
+const webhookSecret = Deno.env.get("EASH_API_WEBHOOK_SECRET") ?? ""
 
-Deno.serve({
-    port: port
-}, async (req) => {
-    const url : URL = new URL(req.url);
+const webhooks = new Webhooks({
+    secret: webhookSecret
+})
 
-    const responseString = getResponseString(url.pathname);
+webhooks.on("push", async ({ id, name, payload }) => {
+    console.info(`push event recieved: ${name}. payload: ${payload}`);
+});
 
-    if (responseString === undefined)
-    {
-        return new Response("not found", {
-            status: 404,
-            headers: {
-                "content-type": "text/plain; charset=utf8"
-            }
-        });
-    }
+const webhookMiddleware = createNodeMiddleware(webhooks, { path: "/gh-webhook"});
 
-    return new Response(responseString, {
-        status: 200,
-        headers: {
-            "content-type": "text/plain; charset=utf-8"
-        }
-    });
+const reqLoggingMiddleware = function (req : Request, _res: Response, next: NextFunction) {
+    console.info(`${req.method} request to "${req.url}" by ${req.hostname}`);
+    next();
+};
+
+const app = express();
+const port = 9999;
+
+app.use(reqLoggingMiddleware);
+app.use(webhookMiddleware);
+
+
+app.get("/", (_req : Request, res : Response) => {
+    res.status(200).send("hello world from deno! welcome to eash-api.");
+});
+
+app.get("/health", (_req : Request, res : Response) => {
+    res.status(200).send("Healthy");
+});
+
+app.get("/ping", (_req : Request, res : Response) => {
+    const potentialResponses : string[] = ["hello there!", "hiya!", "pong", "meowdy!", "hey there :3"];
+    var responseString = potentialResponses[Math.floor(Math.random() * potentialResponses.length)];
+    res.status(200).send(responseString);
+});
+
+app.listen(port, () => {
+    console.log(`Listening on ${port}`);
 });
