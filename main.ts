@@ -1,5 +1,6 @@
 import { Webhooks, createNodeMiddleware } from "npm:@octokit/webhooks";
 import express, { NextFunction, Request, Response } from "npm:express@4.21.2";
+import swaggerUi from "npm:swagger-ui-express@5.0.1";
 
 const webhookSecret = Deno.env.get("EASH_API_WEBHOOK_SECRET") ?? ""
 
@@ -31,6 +32,13 @@ const port = 30081;
 app.use(reqLoggingMiddleware);
 app.use(webhookMiddleware);
 
+const swaggerFile = JSON.parse(await Deno.readTextFile('./swagger.json'));
+const swaggerOpts = {};
+app.use('/docs', (req: Request, _res: Response, next: NextFunction) => {
+    swaggerFile.host = req.get('host');
+    req.swaggerDoc = swaggerFile;
+    next();
+}, swaggerUi.serveFiles(swaggerFile, swaggerOpts), swaggerUi.setup());
 
 app.get("/", (_req : Request, res : Response) => {
     res.status(200).send("hello world from deno! welcome to eash-api.");
